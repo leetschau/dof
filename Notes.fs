@@ -41,7 +41,6 @@ let parseNote (note: string) : Note =
 let loadNotes (path: string) : Note list =
     let files =
         Directory.GetFiles(path, "*.md") |> Array.toList
-
     List.map parseNote files
 
 
@@ -51,22 +50,23 @@ let saveAndDisplayNotes (notes: Note list) : string =
         List.map (fun note -> note.FilePath) notes
         |> String.concat "\n"
     )
+    let header = "No. Updated, Notebook, Title, Created, Tags"
+    let body = List.map
+                    (fun note ->
+                        (note.Updated.ToString "yyyy/MM/dd")
+                        + " "
+                        + note.Notebook
+                        + ": "
+                        + note.Title
+                        + " ["
+                        + (note.Created.ToString "yyyy/MM/dd")
+                        + "] "
+                        + (note.TagList |> String.concat "; "))
+                    notes
+    let withIdx = List.zip [1 .. List.length body] body |>
+                  List.map (fun (idx, body) -> string idx + ". " + body)
 
-    let header = "Resuult:"
-
-    let body =
-        List.map
-            (fun note ->
-                (note.Updated.ToString "yyyy/MM/dd")
-                + ", "
-                + note.Title
-                + ", "
-                + (note.TagList |> String.concat "; ")
-                + ", "
-                + (note.Created.ToString "yyyy/MM/dd"))
-            notes
-
-    (header :: body) |> String.concat "\n"
+    (header :: withIdx) |> String.concat "\n"
 
 
 let simpleSearch (args: string list) : string =

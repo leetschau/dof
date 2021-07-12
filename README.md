@@ -1,6 +1,6 @@
-# donfeng: donno in ML
+# dof: donno in F#
 
-donfeng is a reimplementation of [donno](https://github.com/leetschau/donno) (in Python),
+dof is a reimplementation of [donno](https://github.com/leetschau/donno) (in Python),
 while focuses on the following features:
 
 * Domain modeling based on powerful type system provided by ML family languages.
