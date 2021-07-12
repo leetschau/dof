@@ -1,17 +1,8 @@
 module Notes
 
 open System
+open Config
 open System.IO
-open Microsoft.FSharpLu.Json
-
-let EDITOR = "nvim"
-let VIEWER = "nvim -R"
-let BASE = "/home/leo/.donno"
-let NOTE_REPO = Path.Combine(BASE, "repo")
-let REC_PATH = Path.Combine(BASE, "records")
-let TEMP_FILE = "newnote.md"
-let DEFAULT_REC_NO = 5
-
 
 type Note =
     { Title: string
@@ -46,7 +37,7 @@ let loadNotes (path: string) : Note list =
 
 let saveAndDisplayNotes (notes: Note list) : string =
     File.WriteAllText(
-        REC_PATH,
+        appConfig.RecordPath,
         List.map (fun note -> note.FilePath) notes
         |> String.concat "\n"
     )
@@ -78,7 +69,7 @@ let simpleSearch (args: string list) : string =
     let notes =
         List.fold (fun noteList word ->
                        noteList |> List.filter (wordInNote word))
-                  (loadNotes NOTE_REPO)
+                  (loadNotes appConfig.NoteRepo)
                   args
 
     saveAndDisplayNotes notes
@@ -242,14 +233,14 @@ let advancedSearch (args: string list) : string =
     let notes =
         List.fold
             (fun noteList term -> noteList |> List.filter (noteOnTerm term))
-            (loadNotes NOTE_REPO)
+            (loadNotes appConfig.NoteRepo)
             (List.map parseTerm args)
 
     saveAndDisplayNotes notes
 
 
 let listNotes (num: int) : string =
-    ((loadNotes NOTE_REPO
+    ((loadNotes appConfig.NoteRepo
       |> List.sortByDescending (fun note -> note.Updated))).[..num - 1]
     |> saveAndDisplayNotes
 
@@ -266,10 +257,11 @@ let addNote () : string =
                    Updated: {created}\n\n\
                    ------\n\n"
 
-    File.WriteAllText(TEMP_FILE, header)
+    File.WriteAllText(appConfig.TempFile, header)
 
     let p =
-        System.Diagnostics.Process.Start(EDITOR, TEMP_FILE)
+        System.Diagnostics.Process.Start(appConfig.UserConf.Editor,
+                                         appConfig.TempFile)
 
     p.WaitForExit()
 
@@ -277,29 +269,32 @@ let addNote () : string =
         System.DateTime.Now.ToString "yyMMddHHmmss"
 
     let target =
-        Path.Combine(NOTE_REPO, $"note{timestamp}.md")
+        Path.Combine(appConfig.NoteRepo, $"note{timestamp}.md")
 
-    File.Move(TEMP_FILE, target)
-    listNotes DEFAULT_REC_NO
+    File.Move(appConfig.TempFile, target)
+    listNotes appConfig.DefaultRecNo
 
 
 let editNote (no: int) : string =
-    let path = (File.ReadAllLines REC_PATH).[no - 1]
+    let path = (File.ReadAllLines appConfig.RecordPath).[no - 1]
 
-    let p =
-        System.Diagnostics.Process.Start(EDITOR, path)
-
+    let psi = Diagnostics.ProcessStartInfo(appConfig.UserConf.Editor, path)
+    List.iter (fun { Name = name; Value = value } ->
+        psi.Environment.Add(name, value) ) appConfig.UserConf.AppEnv
+    let p = Diagnostics.Process.Start(psi)
     p.WaitForExit()
-    listNotes DEFAULT_REC_NO
+    listNotes appConfig.DefaultRecNo
 
 
-let viewNote (no: int) : string =
-    let path = (File.ReadAllLines REC_PATH).[no - 1]
-    let cmd = (VIEWER + " " + path).Split(" ")
-    // there may be whitespace in VIEWER, for example `nvim -R`
+let viewNote (no: int) =
+    let path = (File.ReadAllLines appConfig.RecordPath).[no - 1]
 
-    let p = System.Diagnostics.Process.Start(cmd.[0],
-                                             cmd.[1..] |> String.concat " ")
-
+    let cmd = (appConfig.UserConf.Viewer + " " + path).Split(" ")
+    // there may be whitespace in Viewer, for example `nvim -R`
+    let psi = Diagnostics.ProcessStartInfo(cmd.[0],
+                                           cmd.[1..] |> String.concat " ")
+    List.iter (fun { Name = name; Value = value } ->
+        psi.Environment.Add(name, value) ) appConfig.UserConf.AppEnv
+    let p = Diagnostics.Process.Start(psi)
     p.WaitForExit()
-    File.ReadAllText(REC_PATH)
+    (*File.ReadAllText(appConfig.RecordPath)*)
