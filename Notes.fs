@@ -82,13 +82,12 @@ let simpleSearch (args: string list) : string =
         || (note.Title.Contains word)
         || (List.exists (fun (tag: string) -> tag.Contains word) note.TagList)
 
-    let notes =
+    saveAndDisplayList (
         List.fold (fun noteList word ->
                        noteList |> List.filter (wordInNote word))
                   (loadNotes appConfig.NoteRepo)
                   args
-
-    saveAndDisplayList notes
+        |> List.sortBy (fun note -> note.Updated) |> List.rev)
 
 
 type SearchItem =
@@ -246,13 +245,12 @@ let advancedSearch (args: string list) : string =
                 updated > note.Updated
         | _ -> false
 
-    let notes =
+    saveAndDisplayList (
         List.fold
             (fun noteList term -> noteList |> List.filter (noteOnTerm term))
             (loadNotes appConfig.NoteRepo)
             (List.map parseTerm args)
-
-    saveAndDisplayList notes
+        |> List.sortBy (fun note -> note.Updated) |> List.rev)
 
 
 let listNotes (num: int) : string =
