@@ -44,7 +44,7 @@ let appConfig =
 
     { UserConf = userConf
       DefaultRecNo = 5
-      TempFile = "newnote.md"
+      TempFile = "/tmp/newnote.md"
       NoteRepo = Path.Combine(userConf.AppHome, "repo")
       RecordPath = Path.Combine(userConf.AppHome, "records") }
 

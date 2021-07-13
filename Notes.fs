@@ -14,6 +14,22 @@ type Note =
       FilePath: string }
 
 
+let saveNote (note: Note) : string =
+    let date2Str (date: DateTime) = date.ToString "yyyy-MM-dd HH:mm:ss"
+
+    let tags = note.TagList |> String.concat "; "
+    let res = $"Title: {note.Title}\n\
+                Tags: {tags}\n\
+                Notebook: {note.Notebook}\n\
+                Created: {date2Str note.Created}\n\
+                Updated: {date2Str note.Updated}\n\n\
+                ------\n\n\
+                {note.Content}"
+
+    File.WriteAllText(note.FilePath, res)
+    note.FilePath
+
+
 let parseNote (note: string) : Note =
     let lines = File.ReadAllLines note
 
@@ -35,7 +51,7 @@ let loadNotes (path: string) : Note list =
     List.map parseNote files
 
 
-let saveAndDisplayNotes (notes: Note list) : string =
+let saveAndDisplayList (notes: Note list) : string =
     File.WriteAllText(
         appConfig.RecordPath,
         List.map (fun note -> note.FilePath) notes
@@ -72,7 +88,7 @@ let simpleSearch (args: string list) : string =
                   (loadNotes appConfig.NoteRepo)
                   args
 
-    saveAndDisplayNotes notes
+    saveAndDisplayList notes
 
 
 type SearchItem =
@@ -236,65 +252,79 @@ let advancedSearch (args: string list) : string =
             (loadNotes appConfig.NoteRepo)
             (List.map parseTerm args)
 
-    saveAndDisplayNotes notes
+    saveAndDisplayList notes
 
 
 let listNotes (num: int) : string =
     ((loadNotes appConfig.NoteRepo
       |> List.sortByDescending (fun note -> note.Updated))).[..num - 1]
-    |> saveAndDisplayNotes
+    |> saveAndDisplayList
+
+
+let runShellCmd (cmd: string) (args: string) =
+    let cmd = (cmd + " " + args).Split(" ")
+    // there may be whitespace in Viewer, for example `nvim -R`
+    let psi = Diagnostics.ProcessStartInfo(cmd.[0],
+                                           (String.concat " " cmd.[1..]))
+    List.iter (fun { Name = name; Value = value } ->
+        psi.Environment.Add(name, value) ) appConfig.UserConf.AppEnv
+    Diagnostics.Process.Start(psi).WaitForExit()
 
 
 let addNote () : string =
-    let created =
-        System.DateTime.Now.ToString "yyyy-MM-dd HH:mm:ss"
+    let templ =
+        { Title = ""
+          TagList = [""]
+          Notebook = ""
+          Created = System.DateTime.Now
+          Updated = System.DateTime.Now
+          Content = ""
+          FilePath = appConfig.TempFile }
 
-    let header =
-        $"Title: \n\
-                   Tags: \n\
-                   Notebook: \n\
-                   Created: {created}\n\
-                   Updated: {created}\n\n\
-                   ------\n\n"
+    saveNote templ |> ignore
 
-    File.WriteAllText(appConfig.TempFile, header)
-
-    let p =
-        System.Diagnostics.Process.Start(appConfig.UserConf.Editor,
-                                         appConfig.TempFile)
-
+    let p = System.Diagnostics.Process.Start(appConfig.UserConf.Editor,
+                                             templ.FilePath)
     p.WaitForExit()
 
-    let timestamp =
-        System.DateTime.Now.ToString "yyMMddHHmmss"
+    let note = parseNote templ.FilePath
 
-    let target =
-        Path.Combine(appConfig.NoteRepo, $"note{timestamp}.md")
+    let timestamp = System.DateTime.Now.ToString "yyMMddHHmmss"
+    let target = Path.Combine(appConfig.NoteRepo, $"note{timestamp}.md")
 
-    File.Move(appConfig.TempFile, target)
-    listNotes appConfig.DefaultRecNo
+    saveNote { note with Updated = System.DateTime.Now; FilePath = target }
 
 
 let editNote (no: int) : string =
     let path = (File.ReadAllLines appConfig.RecordPath).[no - 1]
+    saveNote {(parseNote path) with FilePath = appConfig.TempFile } |> ignore
 
-    let psi = Diagnostics.ProcessStartInfo(appConfig.UserConf.Editor, path)
-    List.iter (fun { Name = name; Value = value } ->
-        psi.Environment.Add(name, value) ) appConfig.UserConf.AppEnv
-    let p = Diagnostics.Process.Start(psi)
-    p.WaitForExit()
-    listNotes appConfig.DefaultRecNo
+    runShellCmd appConfig.UserConf.Editor appConfig.TempFile
+
+    saveNote {(parseNote appConfig.TempFile) with
+                  Updated = DateTime.Now; FilePath = path }
 
 
 let viewNote (no: int) =
     let path = (File.ReadAllLines appConfig.RecordPath).[no - 1]
+    runShellCmd appConfig.UserConf.Viewer path
 
-    let cmd = (appConfig.UserConf.Viewer + " " + path).Split(" ")
-    // there may be whitespace in Viewer, for example `nvim -R`
-    let psi = Diagnostics.ProcessStartInfo(cmd.[0],
-                                           cmd.[1..] |> String.concat " ")
-    List.iter (fun { Name = name; Value = value } ->
-        psi.Environment.Add(name, value) ) appConfig.UserConf.AppEnv
+
+let backupDryRun =
+    let psi = Diagnostics.ProcessStartInfo("git", "status")
+    psi.WorkingDirectory <- appConfig.NoteRepo
     let p = Diagnostics.Process.Start(psi)
     p.WaitForExit()
-    (*File.ReadAllText(appConfig.RecordPath)*)
+
+
+let backup (message: string) =
+    let psiAdd = Diagnostics.ProcessStartInfo("git", "add -A")
+    psiAdd.WorkingDirectory <- appConfig.NoteRepo
+    let pAdd = Diagnostics.Process.Start(psiAdd)
+    pAdd.WaitForExit()
+    let psiCommit =
+        Diagnostics.ProcessStartInfo("git", $"""commit -m '{message}'""")
+    psiCommit.WorkingDirectory <- appConfig.NoteRepo
+    let pCommit = Diagnostics.Process.Start(psiCommit)
+    pCommit.WaitForExit()
+
