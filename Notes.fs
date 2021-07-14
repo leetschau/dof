@@ -125,6 +125,8 @@ let advancedSearch (args: string list) : string =
             | [ "up"; date ]
             | [ "up"; date; _ ] ->
                 Some({ Body = Updated(DateTime.Parse date); Flag = None })
+            | [ "co"; word ]
+            | [ "co"; word; _ ] -> Some({ Body = Content(word); Flag = None })
             | t ->
                 printfn "Invalid search term: %A" t
                 None
@@ -132,6 +134,7 @@ let advancedSearch (args: string list) : string =
         match baseTerm with
         | Some (baseT) & (Some ({ Body = Title (_); Flag = _ })
                          | Some ({ Body = Tag (_); Flag = _ })
+                         | Some ({ Body = Content (_); Flag = _ })
                          | Some ({ Body = Notebook (_); Flag = _ })) ->
             match terms with
             | [ _; _ ]
@@ -229,6 +232,22 @@ let advancedSearch (args: string list) : string =
 
             if wword then
                 target = token
+            else
+                target.Contains token
+        | Some ({ Body = Content (word)
+                  Flag = Some (TextFlag (icase, wword)) }) ->
+            let target =
+                if icase then
+                    note.Content.ToLower()
+                else
+                    note.Content
+
+            let token = if icase then word.ToLower() else word
+
+            if wword then
+                target.Split " "
+                |> Array.toList
+                |> List.exists (fun x -> x = token)
             else
                 target.Contains token
         | Some ({ Body = Created (created)
