@@ -283,7 +283,7 @@ let addNote () : string =
     let templ =
         { Title = ""
           TagList = [""]
-          Notebook = ""
+          Notebook = appConfig.UserConf.DefaultNotebook
           Created = System.DateTime.Now
           Updated = System.DateTime.Now
           Content = ""
@@ -322,3 +322,4 @@ let backupDryRun =
 let backup (message: string) =
     runShellCmd "git" ["add";  "-A"] appConfig.NoteRepo
     runShellCmd "git" ["commit";  "-m"; message] appConfig.NoteRepo
+    runShellCmd "git" ["push";  "origin"] appConfig.NoteRepo
