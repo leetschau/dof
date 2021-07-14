@@ -259,13 +259,23 @@ let listNotes (num: int) : string =
     |> saveAndDisplayList
 
 
-let runShellCmd (cmd: string) (args: string) =
-    let cmd = (cmd + " " + args).Split(" ")
-    // there may be whitespace in Viewer, for example `nvim -R`
-    let psi = Diagnostics.ProcessStartInfo(cmd.[0],
-                                           (String.concat " " cmd.[1..]))
+let runShellCmd (cmd: string) (args: string list) (wordDir: string) =
+    // there may be whitespace in `cmd`, for example `nvim -R`
+    // also there may be whitespaces in one element of `args`,
+    // for example the 3rd element in ["commit", "-m", "'some commit message'"]
+    // So we can't simply split command by whitespaces
+
+    let command, arguments =
+        match cmd.Split(" ") |> Array.toList with
+        | [ rcmd ] -> (rcmd, args)
+        | rcmd :: arglist -> (rcmd, arglist @ args)
+        | _ -> ("", [""])
+
+    let psi = Diagnostics.ProcessStartInfo(command)
+    List.iter (fun arg -> psi.ArgumentList.Add(arg) ) arguments
     List.iter (fun { Name = name; Value = value } ->
         psi.Environment.Add(name, value) ) appConfig.UserConf.AppEnv
+    psi.WorkingDirectory <- wordDir
     Diagnostics.Process.Start(psi).WaitForExit()
 
 
@@ -281,23 +291,20 @@ let addNote () : string =
 
     saveNote templ |> ignore
 
-    let p = System.Diagnostics.Process.Start(appConfig.UserConf.Editor,
-                                             templ.FilePath)
-    p.WaitForExit()
-
-    let note = parseNote templ.FilePath
+    runShellCmd appConfig.UserConf.Editor [templ.FilePath] ""
 
     let timestamp = System.DateTime.Now.ToString "yyMMddHHmmss"
     let target = Path.Combine(appConfig.NoteRepo, $"note{timestamp}.md")
 
-    saveNote { note with Updated = System.DateTime.Now; FilePath = target }
+    saveNote { (parseNote templ.FilePath) with
+                  Updated = System.DateTime.Now; FilePath = target }
 
 
 let editNote (no: int) : string =
     let path = (File.ReadAllLines appConfig.RecordPath).[no - 1]
     saveNote {(parseNote path) with FilePath = appConfig.TempFile } |> ignore
 
-    runShellCmd appConfig.UserConf.Editor appConfig.TempFile
+    runShellCmd appConfig.UserConf.Editor [appConfig.TempFile] ""
 
     saveNote {(parseNote appConfig.TempFile) with
                   Updated = DateTime.Now; FilePath = path }
@@ -305,24 +312,13 @@ let editNote (no: int) : string =
 
 let viewNote (no: int) =
     let path = (File.ReadAllLines appConfig.RecordPath).[no - 1]
-    runShellCmd appConfig.UserConf.Viewer path
+    runShellCmd appConfig.UserConf.Viewer [path] ""
 
 
 let backupDryRun =
-    let psi = Diagnostics.ProcessStartInfo("git", "status")
-    psi.WorkingDirectory <- appConfig.NoteRepo
-    let p = Diagnostics.Process.Start(psi)
-    p.WaitForExit()
+    runShellCmd "git" ["status"] appConfig.NoteRepo
 
 
 let backup (message: string) =
-    let psiAdd = Diagnostics.ProcessStartInfo("git", "add -A")
-    psiAdd.WorkingDirectory <- appConfig.NoteRepo
-    let pAdd = Diagnostics.Process.Start(psiAdd)
-    pAdd.WaitForExit()
-    let psiCommit =
-        Diagnostics.ProcessStartInfo("git", $"""commit -m '{message}'""")
-    psiCommit.WorkingDirectory <- appConfig.NoteRepo
-    let pCommit = Diagnostics.Process.Start(psiCommit)
-    pCommit.WaitForExit()
-
+    runShellCmd "git" ["add";  "-A"] appConfig.NoteRepo
+    runShellCmd "git" ["commit";  "-m"; message] appConfig.NoteRepo
