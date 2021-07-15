@@ -303,8 +303,8 @@ let addNote () : string =
         { Title = ""
           TagList = [""]
           Notebook = appConfig.UserConf.DefaultNotebook
-          Created = System.DateTime.Now
-          Updated = System.DateTime.Now
+          Created = DateTime.Now
+          Updated = DateTime.Now
           Content = ""
           FilePath = appConfig.TempFile }
 
@@ -312,11 +312,11 @@ let addNote () : string =
 
     runShellCmd appConfig.UserConf.Editor [templ.FilePath] ""
 
-    let timestamp = System.DateTime.Now.ToString "yyMMddHHmmss"
+    let timestamp = DateTime.Now.ToString "yyMMddHHmmss"
     let target = Path.Combine(appConfig.NoteRepo, $"note{timestamp}.md")
 
     saveNote { (parseNote templ.FilePath) with
-                  Updated = System.DateTime.Now; FilePath = target }
+                  Updated = DateTime.Now; FilePath = target }
 
 
 let editNote (no: int) : string =
@@ -339,6 +339,6 @@ let backupDryRun =
 
 
 let backup (message: string) =
-    runShellCmd "git" ["add";  "-A"] appConfig.NoteRepo
-    runShellCmd "git" ["commit";  "-m"; message] appConfig.NoteRepo
-    runShellCmd "git" ["push";  "origin"] appConfig.NoteRepo
+    runShellCmd "git" [ "add"; "-A" ] appConfig.NoteRepo
+    runShellCmd "git" [ "commit"; "-m"; message ] appConfig.NoteRepo
+    runShellCmd "git" [ "push"; "origin" ] appConfig.NoteRepo

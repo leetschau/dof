@@ -44,7 +44,8 @@ let appConfig =
 
     { UserConf = userConf
       DefaultRecNo = 5
-      TempFile = "/tmp/newnote.md"
+      TempFile = "/tmp/note" + (DateTime.Now.ToString "ms") + ".md"
+      // avoid conflicts when editing 2 or more notes simultaneously
       NoteRepo = Path.Combine(userConf.AppHome, "repo")
       RecordPath = Path.Combine(userConf.AppHome, "records") }
 
