@@ -28,6 +28,8 @@ let main argv =
         printfn "%s" (Notes.listNotes appConfig.DefaultRecNo)
     | ["l"; num] | ["list"; num] ->
         printfn "%s" (num |> int |> Notes.listNotes)
+    | ["pv"] | ["preview"] -> Notes.preview 1
+    | ["pv"; num] | ["preview"; num] -> num |> int |> Notes.preview
     | "s" :: "-a" :: args | "search" :: "--advanced" :: args ->
         printfn "%s" (Notes.advancedSearch args)
     | "s" :: args | "search" :: args ->

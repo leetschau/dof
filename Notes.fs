@@ -342,3 +342,14 @@ let backup (message: string) =
     runShellCmd "git" [ "add"; "-A" ] appConfig.NoteRepo
     runShellCmd "git" [ "commit"; "-m"; message ] appConfig.NoteRepo
     runShellCmd "git" [ "push"; "origin" ] appConfig.NoteRepo
+
+let preview (no: int) =
+    let previewFile =  "/tmp/preview.html"
+    let path = (File.ReadAllLines appConfig.RecordPath).[no - 1]
+    runShellCmd "pandoc" ["--filter"; "mermaid-filter";
+        "--mathjax"; "--toc"; "--standalone";
+        "--output"; previewFile; path] ""
+    let psi = Diagnostics.ProcessStartInfo(previewFile)
+    psi.UseShellExecute <- true
+    System.Diagnostics.Process.Start(psi).WaitForExit()
+
