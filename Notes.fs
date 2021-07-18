@@ -57,7 +57,6 @@ let saveAndDisplayList (notes: Note list) : string =
         List.map (fun note -> note.FilePath) notes
         |> String.concat "\n"
     )
-    let header = "No. Updated, Notebook, Title, Created, Tags"
     let body = List.map
                     (fun note ->
                         (note.Updated.ToString "yyyy/MM/dd")
@@ -70,10 +69,14 @@ let saveAndDisplayList (notes: Note list) : string =
                         + "] "
                         + (note.TagList |> String.concat "; "))
                     notes
-    let withIdx = List.zip [1 .. List.length body] body |>
-                  List.map (fun (idx, body) -> string idx + ". " + body)
-
-    (header :: withIdx) |> String.concat "\n"
+    let noteCnt = List.length body
+    match noteCnt with
+    | 0 -> ""
+    | _ ->
+        let header = "No. Updated, Notebook, Title, Created, Tags"
+        let withIdx = List.zip [1 .. List.length body] body |>
+                      List.map (fun (idx, body) -> string idx + ". " + body)
+        (header :: withIdx) |> String.concat "\n"
 
 
 let simpleSearch (args: string list) : string =
